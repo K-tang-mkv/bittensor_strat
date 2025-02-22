@@ -21,3 +21,7 @@ python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 -
 ```
 nohup python monitor_newsubnet.py --to_send dest@gmail.com --from_email sender@gmail.com --password "**" > log &
 ```
+
+**TODO:**  
+	1.	Monitor for new subnets, check the registration fee, and automatically register if it’s less than 1 TAO.  
+	2.	Immediately buy into the subnet’s alpha, monitor the profit, and exit with the original capital once it doubles.
