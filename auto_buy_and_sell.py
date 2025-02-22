@@ -116,7 +116,7 @@ async def _unstake_selection(
                     return False
         else:
             logging.info("can't swap")
-            time.sleep(30)
+            time.sleep(10)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Register a neuron in a subnet.")
