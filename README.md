@@ -16,3 +16,8 @@ screen -S auto_reg
 
 python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 --max_allowed_cost 1.1
 ```
+
+3. monitor new subnet
+```
+nohup python monitor_newsubnet.py --to_send dest@gmail.com --from_email sender@gmail.com --password "**" > log &
+```
