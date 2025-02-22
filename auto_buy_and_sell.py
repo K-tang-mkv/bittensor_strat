@@ -74,7 +74,7 @@ async def _unstake_selection(
             print(stake_infos[hotkey_ss58_address])
 
         stake = stake_infos[hotkey_ss58_address]
-        received_amount, slippage_pct, slippage_pct_float = _calculate_slippage(dynamic_info[67], stake.stake)
+        received_amount, slippage_pct, slippage_pct_float = _calculate_slippage(dynamic_info[netuid], stake.stake)
         logging.info(f"received_amount: {received_amount} slippage_pct: {slippage_pct}")
 
         unstake_all_alpha = True
