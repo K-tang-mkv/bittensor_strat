@@ -160,5 +160,5 @@ if __name__ == "__main__":
     wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
     
     wallet.unlock_coldkey()
-    asyncio.run(_unstake_selection(subtensor, wallet))
+    asyncio.run(_unstake_selection(subtensor, wallet, args.netuid))
 
