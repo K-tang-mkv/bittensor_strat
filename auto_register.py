@@ -7,6 +7,7 @@ from typing import Optional
 from utils import wallet_ask
 import bittensor as bt
 import asyncio
+import os
 
 from bittensor_cli.src.bittensor.extrinsics.registration import (
     register_extrinsic,
@@ -43,6 +44,8 @@ async def subnets_register(
             wallet_path,
             wallet_hotkey
         )
+        password = os.environ.get("WALLET_PASSWORD")
+        wallet.coldkey_file.save_password_to_env(password)
         wallet.unlock_coldkey()
         subtensor = bt.subtensor(network="finney")
         
@@ -72,6 +75,7 @@ async def subnets_register(
                 netuid=netuid
             )
             if done:
+                logging.info("Landing Success!!!")
                 return
 
 

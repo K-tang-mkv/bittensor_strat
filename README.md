@@ -5,15 +5,14 @@
 ## Usage
 1. auto trading
 ```bash
-screen -S auto_trading # open a background shell
+export WALLET_PASSWORD=<>
 python auto_buy_and_sell.py --wallet_name <your_wallet_name> --hotkey <hotkey_name> --netuid <id>
 ```
 
 2. auto register
 
 ```
-screen -S auto_reg
-
+export WALLET_PASSWORD=<>
 python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 --max_allowed_cost 1.1
 ```
 
