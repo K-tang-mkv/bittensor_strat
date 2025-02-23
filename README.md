@@ -5,15 +5,13 @@
 ## Usage
 1. auto trading
 ```bash
-export WALLET_PASSWORD=<>
-python auto_buy_and_sell.py --wallet_name <your_wallet_name> --hotkey <hotkey_name> --netuid <id>
+python auto_buy_and_sell.py --wallet_name <your_wallet_name> --hotkey <hotkey_name> --netuid <id> --password <>
 ```
 
 2. auto register
 
 ```
-export WALLET_PASSWORD=<>
-python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 --max_allowed_cost 1.1
+python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 --max_allowed_cost 1.1 --password <>
 ```
 
 3. monitor new subnet
