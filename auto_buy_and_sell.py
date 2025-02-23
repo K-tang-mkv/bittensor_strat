@@ -17,6 +17,7 @@ from bittensor_cli.src.bittensor.utils import (
     print_error,
 )
 from utils import wallet_ask
+from bittensor_cli.src.commands.stake.remove import unstake as cli_unstake
 
 if TYPE_CHECKING:
     from bittensor_cli.src.bittensor.subtensor_interface import SubtensorInterface
@@ -88,24 +89,16 @@ async def _unstake_selection(
         logging.info(f"received_rao!!: {rao}")
         if received_amount.tao > 1:
             with console.status(console_status):
-                
-                # call_function = "unstake_all_alpha" if unstake_all_alpha else "unstake_all"
-                # call = subtensor.substrate.compose_call(
-                #     call_module="SubtensorModule",
-                #     call_function="remove_stake",
-                #     call_params={
-                #         "hotkey": hotkey_ss58_address,
-                #         "netuid": netuid,
-                #         "amount_unstaked": received_amount.rao,
-                #     },
-                # )
-                # success, error_message = subtensor.sign_and_send_extrinsic(
-                #     call=call,
-                #     wallet=wallet,
-                #     wait_for_inclusion=True,
-                #     wait_for_finalization=False,
-                # )
-                success = subtensor.unstake(wallet=wallet, hotkey_ss58=hotkey_ss58_address, netuid=netuid, wait_for_inclusion=True, wait_for_finalization=True)
+                success = await cli_unstake(
+                    wallet=wallet,
+                    subtensor=subtensor,
+                    hotkey_ss58_address=hotkey_ss58_address,
+                    amount=received_amount.tao,
+                    netuid=netuid,
+                    safe_staking=True,
+                    rate_tolerance=0.10,
+                    allow_partial_stake=True,
+                )
 
                 if success:
                     success_message = (
