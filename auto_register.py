@@ -26,7 +26,8 @@ async def subnets_register(
         wallet_hotkey: str,
         network: Optional[list[str]],
         netuid: int,
-        max_cost: float
+        max_cost: float,
+        password: str
     ):
         """
         Register a neuron (a subnet validator or a subnet miner) in the specified subnet by recycling some TAO.
@@ -44,7 +45,6 @@ async def subnets_register(
             wallet_path,
             wallet_hotkey
         )
-        password = os.environ.get("WALLET_PASSWORD")
         wallet.coldkey_file.save_password_to_env(password)
         wallet.unlock_coldkey()
         subtensor = bt.subtensor(network="finney")
@@ -117,6 +117,12 @@ def parse_args():
          default='0.1',
          help='maximum allowed register fee'
     )
+    parser.add_argument(
+         '--password',
+         type=str,
+         required=True,
+         help="the coldkey's password!"
+    )
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -129,5 +135,6 @@ if __name__ == "__main__":
         wallet_hotkey=args.hotkey,
         network=[args.network],
         netuid=args.netuid,
-        max_cost=args.max_allowed_cost
+        max_cost=args.max_allowed_cost,
+        password=args.password
     ))

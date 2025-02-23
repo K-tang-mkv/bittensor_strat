@@ -157,7 +157,12 @@ def parse_args():
         required=True, 
         help='Subnet ID'
     )
-    
+    parser.add_argument(
+         '--password',
+         type=str,
+         required=True,
+         help="the coldkey's password!"
+    )
     return parser.parse_args()
 if __name__ == "__main__":
     logging.info("Start this app!!!")
@@ -166,7 +171,7 @@ if __name__ == "__main__":
     subtensor = bt.subtensor(network="finney")
 
     wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
-    password = os.environ.get("WALLET_PASSWORD")
+    password = args.password
     wallet.coldkey_file.save_password_to_env(password)
     
     wallet.unlock_coldkey()
