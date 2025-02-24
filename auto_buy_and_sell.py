@@ -54,15 +54,23 @@ def _calculate_slippage(subnet_info, amount: Balance) -> tuple[Balance, str, flo
     return received_amount, slippage_pct, slippage_pct_float
 
 async def _unstake_selection(
-    subtensor: "SubtensorInterface",
-    wallet: Wallet,
-    netuid: Optional[int] = None,
+    wallet,
+    netuid=None,
 ):
+    subtensor = bt.async_subtensor("finney")
+    await subtensor.initialize()
+    
+    # Test the connection works
+    try:
+        await subtensor.get_current_block()
+    except Exception as e:
+        await subtensor.close()
+        raise e
     while True:
-        all_sn_dynamic_info_ = subtensor.all_subnets()
+        all_sn_dynamic_info_ = await subtensor.all_subnets()
         dynamic_info = {info.netuid: info for info in all_sn_dynamic_info_}
 
-        stake_infos_ = subtensor.get_stake_for_coldkey(
+        stake_infos_ = await subtensor.get_stake_for_coldkey(
             coldkey_ss58=wallet.coldkeypub.ss58_address
         )
         stake_infos = {(info.hotkey_ss58, info.netuid): info for info in stake_infos_}
@@ -86,7 +94,7 @@ async def _unstake_selection(
         logging.info(f"received_rao: {received_amount.rao}")
         rao = received_amount.tao * pow(10, 9)
         logging.info(f"received_rao!!: {rao}")
-        if received_amount.tao > 1:
+        if received_amount.tao > 0.1:
             with console.status(console_status):
                 
                 # call_function = "unstake_all_alpha" if unstake_all_alpha else "unstake_all"
@@ -100,12 +108,12 @@ async def _unstake_selection(
                 #     },
                 # )
                 # success, error_message = subtensor.sign_and_send_extrinsic(
-                #     call=call,
+                #     cal Al=call,
                 #     wallet=wallet,
                 #     wait_for_inclusion=True,
                 #     wait_for_finalization=False,
                 # )
-                success = subtensor.unstake(wallet=wallet, hotkey_ss58=hotkey_ss58_address, netuid=netuid, wait_for_inclusion=True, wait_for_finalization=True)
+                success = await subtensor.unstake(wallet=wallet, hotkey_ss58=hotkey_ss58_address, netuid=netuid, wait_for_inclusion=True, wait_for_finalization=False)
 
                 if success:
                     success_message = (
@@ -164,16 +172,31 @@ def parse_args():
          help="the coldkey's password!"
     )
     return parser.parse_args()
+
+async def get_working_subtensor():
+    """
+    Get an initialized subtensor connection and test it works.
+    Retries on failure, cycling through different endpoints.
+    """
+    sub = bt.async_subtensor("finney")
+    await sub.initialize()
+    
+    # Test the connection works
+    try:
+        await sub.get_current_block()
+        return sub
+    except Exception as e:
+        await sub.close()
+        raise e
+
 if __name__ == "__main__":
     logging.info("Start this app!!!")
     args = parse_args()
-
-    subtensor = bt.subtensor(network="finney")
 
     wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
     password = args.password
     wallet.coldkey_file.save_password_to_env(password)
     
     wallet.unlock_coldkey()
-    asyncio.run(_unstake_selection(subtensor, wallet, args.netuid))
+    asyncio.run(_unstake_selection(wallet, args.netuid))
 
