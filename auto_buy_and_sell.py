@@ -16,7 +16,7 @@ from bittensor_cli.src.bittensor.utils import (
     err_console,
     print_error,
 )
-from utils import wallet_ask
+from utils import wallet_ask, _calculate_slippage
 
 if TYPE_CHECKING:
     from bittensor_cli.src.bittensor.subtensor_interface import SubtensorInterface
@@ -27,34 +27,11 @@ logging.basicConfig(
 )
 
 
-# Helpers
-def _calculate_slippage(subnet_info, amount: Balance) -> tuple[Balance, str, float]:
-    """Calculate slippage and received amount for unstaking operation.
 
-    Args:
-        dynamic_info: Subnet information containing price data
-        amount: Amount being unstaked
-
-    Returns:
-        tuple containing:
-        - received_amount: Balance after slippage
-        - slippage_pct: Formatted string of slippage percentage
-        - slippage_pct_float: Float value of slippage percentage
-    """
-    received_amount, slippage_pct_float = subnet_info.alpha_to_tao_with_slippage(
-        amount
-    )
-
-    if subnet_info.is_dynamic:
-        slippage_pct = slippage_pct_float
-    else:
-        slippage_pct_float = 0
-        slippage_pct = "[red]N/A[/red]"
-
-    return received_amount, slippage_pct, slippage_pct_float
 
 async def _unstake_selection(
     wallet,
+    hotkey,
     netuid=None,
     sell_atleast=None,
 ):
@@ -75,7 +52,7 @@ async def _unstake_selection(
             coldkey_ss58=wallet.coldkeypub.ss58_address
         )
         stake_infos = {(info.hotkey_ss58, info.netuid): info for info in stake_infos_}
-        hotkey_ss58_address = wallet.hotkey.ss58_address
+        hotkey_ss58_address = hotkey
         if not stake_infos:
             print_error("You have no stakes to unstake.")
             raise typer.Exit()
@@ -185,10 +162,11 @@ if __name__ == "__main__":
     logging.info("Start this app!!!")
     args = parse_args()
 
-    wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
+    # wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
+    wallet = bt.wallet(name=args.wallet_name)
     password = args.password
     wallet.coldkey_file.save_password_to_env(password)
     
     wallet.unlock_coldkey()
-    asyncio.run(_unstake_selection(wallet, args.netuid, args.sell_atleast))
+    asyncio.run(_unstake_selection(wallet, args.hotkey, args.netuid, args.sell_atleast))
 
