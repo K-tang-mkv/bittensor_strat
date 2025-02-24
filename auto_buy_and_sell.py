@@ -56,6 +56,7 @@ def _calculate_slippage(subnet_info, amount: Balance) -> tuple[Balance, str, flo
 async def _unstake_selection(
     wallet,
     netuid=None,
+    sell_atleast=None,
 ):
     subtensor = bt.async_subtensor("finney")
     await subtensor.initialize()
@@ -94,7 +95,7 @@ async def _unstake_selection(
         logging.info(f"received_rao: {received_amount.rao}")
         rao = received_amount.tao * pow(10, 9)
         logging.info(f"received_rao!!: {rao}")
-        if received_amount.tao > 0.1:
+        if received_amount.tao > sell_atleast:
             with console.status(console_status):
                 
                 # call_function = "unstake_all_alpha" if unstake_all_alpha else "unstake_all"
@@ -171,23 +172,14 @@ def parse_args():
          required=True,
          help="the coldkey's password!"
     )
+    parser.add_argument(
+        '--sell_atleast',
+        type=float,
+        required=True,
+        help="sell at least in what price"
+    )
     return parser.parse_args()
 
-async def get_working_subtensor():
-    """
-    Get an initialized subtensor connection and test it works.
-    Retries on failure, cycling through different endpoints.
-    """
-    sub = bt.async_subtensor("finney")
-    await sub.initialize()
-    
-    # Test the connection works
-    try:
-        await sub.get_current_block()
-        return sub
-    except Exception as e:
-        await sub.close()
-        raise e
 
 if __name__ == "__main__":
     logging.info("Start this app!!!")
@@ -198,5 +190,5 @@ if __name__ == "__main__":
     wallet.coldkey_file.save_password_to_env(password)
     
     wallet.unlock_coldkey()
-    asyncio.run(_unstake_selection(wallet, args.netuid))
+    asyncio.run(_unstake_selection(wallet, args.netuid, args.sell_atleast))
 
