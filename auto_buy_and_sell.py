@@ -101,7 +101,7 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                 )
             else:
                 console.print(
-                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Not satisfy mini sell {mini_sell}"
+                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Not satisfy mini sell {mini_sell}, wait for 15 seconds and try again..."
                 )
                 time.sleep(15)
 
