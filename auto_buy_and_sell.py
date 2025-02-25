@@ -1,115 +1,109 @@
-import bittensor as bt
-import time
-import logging
-import argparse
 import os
 import asyncio
+import argparse
+import time
 
-from typing import TYPE_CHECKING, Optional
-import typer
-
-from bittensor_wallet import Wallet
-
-from bittensor_cli.src.bittensor.balances import Balance
+from bittensor_cli.src.bittensor.subtensor_interface import SubtensorInterface
+from bittensor_cli.src import COLOR_PALETTE
 from bittensor_cli.src.bittensor.utils import (
-    console,
-    err_console,
-    print_error,
+    console
 )
+
 from utils import wallet_ask, _calculate_slippage
+from utils import _safe_unstake_extrinsic
 
-if TYPE_CHECKING:
-    from bittensor_cli.src.bittensor.subtensor_interface import SubtensorInterface
+async def unstake_(sub, wallet, netuid, mini_sell):
+    async with sub:
+        initiated = True
+    if initiated:
+        while True:
+            """Unstake from hotkey(s)."""
+            with console.status(
+                f"Retrieving subnet data & identities from {subtensor.network}...",
+                spinner="earth",
+            ):
+                all_sn_dynamic_info_ = await subtensor.all_subnets()
 
-logging.basicConfig(
-    level=logging.INFO,               # 设置日志级别为 INFO，这样 INFO 级别以上的日志会被记录
-    format='%(asctime)s - %(levelname)s - %(message)s'  # 日志格式
-)
+                all_sn_dynamic_info = {info.netuid: info for info in all_sn_dynamic_info_}
 
-
-
-
-async def _unstake_selection(
-    wallet,
-    hotkey,
-    netuid=None,
-    sell_atleast=None,
-):
-    subtensor = bt.async_subtensor("finney")
-    await subtensor.initialize()
-    
-    # Test the connection works
-    try:
-        await subtensor.get_current_block()
-    except Exception as e:
-        await subtensor.close()
-        raise e
-    while True:
-        all_sn_dynamic_info_ = await subtensor.all_subnets()
-        dynamic_info = {info.netuid: info for info in all_sn_dynamic_info_}
-
-        stake_infos_ = await subtensor.get_stake_for_coldkey(
-            coldkey_ss58=wallet.coldkeypub.ss58_address
-        )
-        stake_infos = {(info.hotkey_ss58, info.netuid): info for info in stake_infos_}
-        hotkey_ss58_address = hotkey
-        if not stake_infos:
-            print_error("You have no stakes to unstake.")
-            raise typer.Exit()
-        else:
-            print(stake_infos[(hotkey_ss58_address, netuid)])
-
-        stake = stake_infos[(hotkey_ss58_address, netuid)]
-        received_amount, slippage_pct, slippage_pct_float = _calculate_slippage(dynamic_info[netuid], stake.stake)
-        logging.info(f"received_amount: {received_amount} slippage_pct: {slippage_pct}")
-
-        unstake_all_alpha = True
-        console_status = (
-            ":satellite: Unstaking all Alpha stakes..."
-            if unstake_all_alpha
-            else ":satellite: Unstaking all stakes..."
-        )
-        logging.info(f"received_rao: {received_amount.rao}")
-        rao = received_amount.tao * pow(10, 9)
-        logging.info(f"received_rao!!: {rao}")
-        if received_amount.tao > sell_atleast:
-            with console.status(console_status):
-                
-                # call_function = "unstake_all_alpha" if unstake_all_alpha else "unstake_all"
-                # call = subtensor.substrate.compose_call(
-                #     call_module="SubtensorModule",
-                #     call_function="remove_stake",
-                #     call_params={
-                #         "hotkey": hotkey_ss58_address,
-                #         "netuid": netuid,
-                #         "amount_unstaked": received_amount.rao,
-                #     },
-                # )
-                # success, error_message = subtensor.sign_and_send_extrinsic(
-                #     cal Al=call,
-                #     wallet=wallet,
-                #     wait_for_inclusion=True,
-                #     wait_for_finalization=False,
-                # )
-                success = await subtensor.unstake(wallet=wallet, hotkey_ss58=hotkey_ss58_address, netuid=netuid, wait_for_inclusion=True, wait_for_finalization=False)
-
-                if success:
-                    success_message = (
-                        ":white_heavy_check_mark: [green]Successfully unstaked all stakes[/green]"
-                        if not unstake_all_alpha
-                        else ":white_heavy_check_mark: [green]Successfully unstaked all Alpha stakes [/green]"
+            with console.status(
+                f"Retrieving stake data from {subtensor.network}...",
+                spinner="earth",
+            ):
+                # Fetch stake balances
+                chain_head = await subtensor.substrate.get_chain_head()
+                stake_info_list = await subtensor.get_stake_for_coldkey(
+                    coldkey_ss58=wallet.coldkeypub.ss58_address,
+                    block_hash=chain_head,
+                )
+                stake_in_netuids = {}
+                for stake_info in stake_info_list:
+                    if stake_info.hotkey_ss58 not in stake_in_netuids:
+                        stake_in_netuids[stake_info.hotkey_ss58] = {}
+                    stake_in_netuids[stake_info.hotkey_ss58][stake_info.netuid] = (
+                        stake_info.stake
                     )
-                    console.print(success_message)
-                    
-                    return True
+
+            if wallet.hotkey.ss58_address not in stake_in_netuids:
+                console.print(
+                    f"not enough alpha to unstake, wait for one hour and check again..."
+                )
+                time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
+
+                continue
+            # Iterate over hotkeys and netuids to collect unstake operations
+
+            staking_address_ss58 = wallet.hotkey.ss58_address
+            subnet_info = all_sn_dynamic_info.get(netuid)
+
+            current_stake_balance = stake_in_netuids[staking_address_ss58].get(netuid)
+
+            if current_stake_balance is None:
+                console.print(
+                    f"current stake alpha is None, wait for one hour and check again..."
+                )
+                time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
+
+                continue
+            # Determine the amount we are unstaking.
+            amount_to_unstake_as_balance = current_stake_balance
+
+            # Check enough stake to remove.
+            amount_to_unstake_as_balance.set_unit(netuid)
+
+            received_amount, slippage_pct, slippage_pct_float = _calculate_slippage(
+                subnet_info=subnet_info, amount=amount_to_unstake_as_balance
+            )
+
+            if received_amount > mini_sell:
+                # Additional fields for safe unstaking
+                if subnet_info.is_dynamic:
+                    price_with_tolerance = subnet_info.price.rao * (
+                        1 - (slippage_pct_float/100 * 2.1)
+                    )  # Actual price to pass to extrinsic
                 else:
-                    err_console.print(
-                        f":cross_mark: [red]Failed to unstake[/red]:"
+                    price_with_tolerance = 1
+            
+                with console.status("\n:satellite: Performing unstaking operations...") as status:
+                    await _safe_unstake_extrinsic(
+                        wallet=wallet,
+                        subtensor=subtensor,
+                        netuid=netuid,
+                        amount=amount_to_unstake_as_balance,
+                        current_stake=current_stake_balance,
+                        hotkey_ss58=staking_address_ss58,
+                        price_limit=price_with_tolerance,
+                        allow_partial_stake=True,
+                        status=status,
                     )
-                    return False
-        else:
-            logging.info("can't swap")
-            time.sleep(10)
+                console.print(
+                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Unstaking operations completed. Check the next trading..."
+                )
+            else:
+                console.print(
+                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Not satisfy mini sell {mini_sell}"
+                )
+                time.sleep(15)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Register a neuron in a subnet.")
@@ -150,23 +144,22 @@ def parse_args():
          help="the coldkey's password!"
     )
     parser.add_argument(
-        '--sell_atleast',
+        '--mini_sell',
         type=float,
         required=True,
-        help="sell at least in what price"
+        help="minimum amount TAO to sell"
     )
     return parser.parse_args()
 
-
 if __name__ == "__main__":
-    logging.info("Start this app!!!")
     args = parse_args()
 
-    # wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
-    wallet = bt.wallet(name=args.wallet_name)
+    subtensor = SubtensorInterface("wss://entrypoint-finney.opentensor.ai:443")
+    
+    wallet = wallet_ask(args.wallet_name, args.wallet_path, args.hotkey)
+    password = os.environ.get("WALLET_PASSWORD")
     password = args.password
     wallet.coldkey_file.save_password_to_env(password)
-    
-    wallet.unlock_coldkey()
-    asyncio.run(_unstake_selection(wallet, args.hotkey, args.netuid, args.sell_atleast))
 
+    wallet.unlock_coldkey()
+    asyncio.run(unstake_(subtensor, wallet, args.netuid, args.mini_sell))
