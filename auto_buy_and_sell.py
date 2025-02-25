@@ -71,7 +71,7 @@ async def unstake_(sub, wallet, netuid, mini_sell):
             # Check enough stake to remove.
             amount_to_unstake_as_balance.set_unit(netuid)
 
-            received_amount, slippage_pct, slippage_pct_float = _calculate_slippage(
+            received_amount, _, slippage_pct_float = _calculate_slippage(
                 subnet_info=subnet_info, amount=amount_to_unstake_as_balance
             )
 

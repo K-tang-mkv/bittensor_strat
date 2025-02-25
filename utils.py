@@ -20,7 +20,7 @@ from bittensor_cli.src.bittensor.utils import (
 def wallet_ask(
         wallet_name: Optional[str],
         wallet_path: Optional[str],
-        wallet_hotkey: Optional[str],
+        wallet_hotkey=None,
     ) -> Wallet:
         """
         Generates a wallet object based on supplied values, validating the wallet is valid if flag is set

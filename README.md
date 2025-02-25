@@ -1,6 +1,8 @@
 # bittensor_strat
 * auto_sell when alpha > 1 TAO
 * auto register
+* monitor_new subnet
+* check balance
 
 ## Usage
 1. auto trading
@@ -17,6 +19,11 @@ python auto_register.py --wallet_name coldkey_name --hotkey hotkey --netuid 69 -
 3. monitor new subnet
 ```
 nohup python monitor_newsubnet.py --to_send dest@gmail.com --from_email sender@gmail.com --password "**" > log &
+```
+
+4. check TAO balance
+```
+python check_balance.py --wallet_name coldkey_name
 ```
 
 **TODO:**  
