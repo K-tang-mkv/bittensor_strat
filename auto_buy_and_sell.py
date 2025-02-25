@@ -75,7 +75,7 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                 subnet_info=subnet_info, amount=amount_to_unstake_as_balance
             )
 
-            if received_amount > mini_sell:
+            if received_amount.tao > mini_sell:
                 # Additional fields for safe unstaking
                 if subnet_info.is_dynamic:
                     price_with_tolerance = subnet_info.price.rao * (
