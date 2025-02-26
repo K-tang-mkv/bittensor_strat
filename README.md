@@ -7,7 +7,7 @@
 ## Usage
 1. auto trading
 ```bash
-python auto_buy_and_sell.py --wallet_name <your_wallet_name> --hotkey <hotkey_name> --netuid <id> --password <>
+python auto_buy_and_sell.py --wallet_name <your_wallet_name> --netuid <id> --password <> --mini_sell 0.1
 ```
 
 2. auto register
