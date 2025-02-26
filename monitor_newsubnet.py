@@ -68,7 +68,8 @@ def monitor_new_subnet_registrations(network="finney", check_interval=60, email=
                 
                 while True:
                     logging.info(f"Starting to register to new subnet!!!!!!!!!")
-                    current_recycle_ = subtensor.get_hyperparameter(param_name="Burn", netuid=latest_one)
+                    netuid = current_subnets - 1
+                    current_recycle_ = subtensor.get_hyperparameter(param_name="Burn", netuid=netuid)
                     balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
                     current_recycle = (
                         Balance.from_rao(int(current_recycle_)) if current_recycle_ else Balance(0)
@@ -89,7 +90,7 @@ def monitor_new_subnet_registrations(network="finney", check_interval=60, email=
                     
                     done = subtensor.burned_register(
                         wallet=wallet,
-                        netuid=latest_one
+                        netuid=netuid
                     )
                     if done:
                         logging.info("Landing Success!!!")
