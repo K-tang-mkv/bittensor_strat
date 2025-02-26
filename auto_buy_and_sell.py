@@ -18,13 +18,6 @@ async def unstake_(sub, wallet, netuid, mini_sell):
     if initiated:
         while True:
             """Unstake from hotkey(s)."""
-            with console.status(
-                f"Retrieving subnet data & identities from {subtensor.network}...",
-                spinner="earth",
-            ):
-                all_sn_dynamic_info_ = await subtensor.all_subnets()
-
-                all_sn_dynamic_info = {info.netuid: info for info in all_sn_dynamic_info_}
 
             with console.status(
                 f"Retrieving stake data from {subtensor.network}...",
@@ -36,74 +29,80 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                     coldkey_ss58=wallet.coldkeypub.ss58_address,
                     block_hash=chain_head,
                 )
-                stake_in_netuids = {}
+                stake_in_netuids = []
                 for stake_info in stake_info_list:
-                    if stake_info.hotkey_ss58 not in stake_in_netuids:
-                        stake_in_netuids[stake_info.hotkey_ss58] = {}
-                    stake_in_netuids[stake_info.hotkey_ss58][stake_info.netuid] = (
-                        stake_info.stake
-                    )
-
-            if wallet.hotkey.ss58_address not in stake_in_netuids:
-                console.print(
-                    f"not enough alpha to unstake, wait for one hour and check again..."
-                )
-                time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
-
-                continue
-            # Iterate over hotkeys and netuids to collect unstake operations
-
-            staking_address_ss58 = wallet.hotkey.ss58_address
-            subnet_info = all_sn_dynamic_info.get(netuid)
-
-            current_stake_balance = stake_in_netuids[staking_address_ss58].get(netuid)
-
-            if current_stake_balance is None:
-                console.print(
-                    f"current stake alpha is None, wait for one hour and check again..."
-                )
-                time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
-
-                continue
-            # Determine the amount we are unstaking.
-            amount_to_unstake_as_balance = current_stake_balance
-
-            # Check enough stake to remove.
-            amount_to_unstake_as_balance.set_unit(netuid)
-
-            received_amount, _, slippage_pct_float = _calculate_slippage(
-                subnet_info=subnet_info, amount=amount_to_unstake_as_balance
-            )
-
-            if received_amount.tao > mini_sell:
-                # Additional fields for safe unstaking
-                if subnet_info.is_dynamic:
-                    price_with_tolerance = subnet_info.price.rao * (
-                        1 - (slippage_pct_float/100 * 2.1)
-                    )  # Actual price to pass to extrinsic
-                else:
-                    price_with_tolerance = 1
+                    if stake_info.netuid == netuid:
+                        stake_in_netuids.append((stake_info.hotkey_ss58, stake_info.stake))
             
-                with console.status("\n:satellite: Performing unstaking operations...") as status:
-                    await _safe_unstake_extrinsic(
-                        wallet=wallet,
-                        subtensor=subtensor,
-                        netuid=netuid,
-                        amount=amount_to_unstake_as_balance,
-                        current_stake=current_stake_balance,
-                        hotkey_ss58=staking_address_ss58,
-                        price_limit=price_with_tolerance,
-                        allow_partial_stake=True,
-                        status=status,
+            if len(stake_in_netuids) == 0:
+                console.print(
+                    f"No any stake in this subnet {netuid}, wait for one hour and check again..."
+                )
+                time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
+
+                continue
+
+            for item in stake_in_netuids:
+                with console.status(
+                f"Retrieving subnet data & identities from {subtensor.network}...",
+                spinner="earth",
+                ):
+                    all_sn_dynamic_info_ = await subtensor.all_subnets()
+
+                    all_sn_dynamic_info = {info.netuid: info for info in all_sn_dynamic_info_}
+                if item[1] is None:
+                    console.print(
+                        f"current hotkey {item[0]} stake alpha in this subnet {netuid} is None, check the next one"
                     )
-                console.print(
-                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Unstaking operations completed. Check the next trading..."
-                )
-            else:
-                console.print(
-                    f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Not satisfy mini sell {mini_sell}, wait for 15 seconds and try again..."
-                )
-                time.sleep(15)
+                    continue
+                else:
+                    staking_address_ss58 = item[0]
+                    current_stake_balance = item[1]
+                    subnet_info = all_sn_dynamic_info.get(netuid)
+
+                    # Determine the amount we are unstaking.
+                    amount_to_unstake_as_balance = current_stake_balance
+
+                    # Check enough stake to remove.
+                    amount_to_unstake_as_balance.set_unit(netuid)
+
+                    received_amount, _, slippage_pct_float = _calculate_slippage(
+                        subnet_info=subnet_info, amount=amount_to_unstake_as_balance
+                    )
+
+                    if received_amount.tao > mini_sell:
+                        # Additional fields for safe unstaking
+                        if subnet_info.is_dynamic:
+                            price_with_tolerance = subnet_info.price.rao * (
+                                1 - (slippage_pct_float/100 * 2.1)
+                            )  # Actual price to pass to extrinsic
+                        else:
+                            price_with_tolerance = 1
+                    
+                        with console.status("\n:satellite: Performing unstaking operations...") as status:
+                            await _safe_unstake_extrinsic(
+                                wallet=wallet,
+                                subtensor=subtensor,
+                                netuid=netuid,
+                                amount=amount_to_unstake_as_balance,
+                                current_stake=current_stake_balance,
+                                hotkey_ss58=staking_address_ss58,
+                                price_limit=price_with_tolerance,
+                                allow_partial_stake=True,
+                                status=status,
+                            )
+                        console.print(
+                            f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Current hotkey {staking_address_ss58} Unstaking operations completed. Check the next one..."
+                        )
+                    else:
+                        console.print(
+                            f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Current hotkey {staking_address_ss58} Not satisfy mini sell {mini_sell}, check the next one..."
+                        )
+
+
+            console.print(f"All the hotkeys in this subnet {netuid} unstaking finish, wait for 30 minutes and check again...")
+            time.sleep(1800)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Register a neuron in a subnet.")
@@ -122,7 +121,7 @@ def parse_args():
     parser.add_argument(
         '--hotkey', 
         type=str, 
-        required=True, 
+        required=False, 
         help='Hotkey wallet name'
     )
     parser.add_argument(
