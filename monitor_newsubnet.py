@@ -1,4 +1,6 @@
 import bittensor as bt
+from bittensor_cli.src.bittensor.balances import Balance
+
 import time
 from datetime import datetime
 import smtplib
@@ -7,6 +9,7 @@ from email.mime.multipart import MIMEMultipart
 import logging
 import argparse
 
+from utils import wallet_ask
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,               # 设置日志级别为 INFO，这样 INFO 级别以上的日志会被记录
@@ -41,7 +44,7 @@ def send_email(subject, body, to_email, from_email, password):
     finally:
         server.quit()
 
-def monitor_new_subnet_registrations(network="finney", check_interval=60, email=None, from_email=None, password=None):
+def monitor_new_subnet_registrations(network="finney", check_interval=60, email=None, from_email=None, password=None, wallet=None):
     subtensor = bt.subtensor(network=network)
     logging.info(f"Connected to Bittensor network: {network}")
 
@@ -62,7 +65,35 @@ def monitor_new_subnet_registrations(network="finney", check_interval=60, email=
                     subject = f"New Subnet Registered: {latest_one}"
                     body = f"New subnet {latest_one} detected at {current_time}. Total subnets: {current_subnets}"
                     send_email(subject, body, email, from_email, password)
+                
+                while True:
+                    logging.info(f"Starting to register to new subnet!!!!!!!!!")
+                    current_recycle_ = subtensor.get_hyperparameter(param_name="Burn", netuid=latest_one)
+                    balance = subtensor.get_balance(wallet.coldkeypub.ss58_address)
+                    current_recycle = (
+                        Balance.from_rao(int(current_recycle_)) if current_recycle_ else Balance(0)
+                    )
 
+                    logging.info(f"current registration fee: = {current_recycle}")
+
+                    # Check balance is sufficient
+                    if balance < current_recycle:
+                        logging.error(
+                            f"Insufficient balance {balance} to register neuron. Current recycle is {current_recycle} TAO"
+                        )
+                        return
+                    if 1.1 < current_recycle.tao:
+                        logging.error(
+                            f"Exceed the max_cost Current recycle is {current_recycle} TAO")
+                        return
+                    
+                    done = subtensor.burned_register(
+                        wallet=wallet,
+                        netuid=latest_one
+                    )
+                    if done:
+                        logging.info("Landing Success!!!")
+                        break
             else:
                 logging.info(f"[{current_time}] No new subnets detected. Total: {current_subnets}")
 
@@ -81,15 +112,27 @@ if __name__ == "__main__":
     parser.add_argument("--to_send", type=str, required=True, help="Target email address to receive notifications.")
     parser.add_argument("--from_email", type=str, required=True, help="Sender email address (Gmail).")
     parser.add_argument("--password", type=str, required=True, help="Gmail application-specific password.")
-    
+    parser.add_argument("--wallet_name", type=str, required=True, help="wallet coldkey name")
+    parser.add_argument("--wallet_path", type=str, default="~/.bittensor/wallets", help='Path to wallet (default: ~/.bittensor/wallets)')
+    parser.add_argument("--hotkey", type=str, required=True, help="The hotkey name u want to use to register")
+    parser.add_argument("--wallet_password", type=str, required=True, help="Password for wallet")
     args = parser.parse_args()
 
     # 调用主函数
     logging.info(f"Starting subnet registration monitor on {args.network} network...")
+    wallet = wallet_ask(
+            args.wallet_name,
+            args.wallet_path,
+            args.hotkey
+        )
+    wallet.coldkey_file.save_password_to_env(args.wallet_password)
+    wallet.unlock_coldkey()
+
     monitor_new_subnet_registrations(
         network=args.network,
         check_interval=args.check_interval,
         email=args.to_send,
         from_email=args.from_email,
-        password=args.password
+        password=args.password,
+        wallet=wallet
     )

@@ -41,7 +41,7 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                 time.sleep(3600) # if there was no alpha stake on this hotkey, wait one hour and check again
 
                 continue
-
+            total_stake = 0
             for item in stake_in_netuids:
                 with console.status(
                 f"Retrieving subnet data & identities from {subtensor.network}...",
@@ -69,7 +69,10 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                     received_amount, _, slippage_pct_float = _calculate_slippage(
                         subnet_info=subnet_info, amount=amount_to_unstake_as_balance
                     )
-
+                    total_stake += received_amount.tao
+                    console.print(
+                        f"current hotkey {item[0]} stake alpha in this subnet {netuid} is {received_amount}"
+                    )
                     if received_amount.tao > mini_sell:
                         # Additional fields for safe unstaking
                         if subnet_info.is_dynamic:
@@ -99,9 +102,12 @@ async def unstake_(sub, wallet, netuid, mini_sell):
                             f"[{COLOR_PALETTE['STAKE']['STAKE_AMOUNT']}]Current hotkey {staking_address_ss58} Not satisfy mini sell {mini_sell}, check the next one..."
                         )
 
-
-            console.print(f"All the hotkeys in this subnet {netuid} unstaking finish, wait for 30 minutes and check again...")
-            time.sleep(1800)
+            if total_stake > 0:
+                console.print(f"All the hotkeys in this subnet {netuid} unstaking not finish, wait for 30 seconds and check again...")
+                time.sleep(30)
+            else:
+                console.print(f"All the hotkeys in this subnet {netuid} unstaking finish, wait for 30 minutes and check again...")
+                time.sleep(1800)
 
 
 def parse_args():
